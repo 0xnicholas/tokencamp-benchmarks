@@ -4,7 +4,7 @@ A benchmark platform measuring two economics of intelligence resources: what the
 
 ## Language
 
-**Token Economics** (代币经济学):
+**Token Economics**:
 The economics of procuring intelligence resources: how much capability a model delivers per unit of spend. Measured by Model Benchmarks.
 _Avoid_: Inference cost alone, per-token pricing
 
