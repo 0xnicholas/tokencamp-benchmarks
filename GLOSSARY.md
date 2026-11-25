@@ -93,6 +93,10 @@ _Avoid_: Confusing with Attempt.
 An identifier attached to each model call that links that call to its attempt in the Run Artifact.
 _Avoid_: Session identifier, request number
 
+**Raw Call** (原始调用):
+One physical model call issued through the Generation Resolver, retries included; each carries a unique Trace ID and the tokencamp generation id that Settled Cost reconciliation fetches. An attempt row's `rawCalls` block holds every Raw Call of that attempt.
+_Avoid_: HTTP request, provider call
+
 **Generation Resolver** (生成解析器):
 The harness piece that executes a model call: it takes a call request and returns the model output with normalized token usage.
 _Avoid_: Provider SDK, provider client

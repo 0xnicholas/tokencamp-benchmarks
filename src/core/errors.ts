@@ -1,3 +1,11 @@
+/** Configuration/auth problems that must fail before any spend happens. */
+export class ResolverConfigError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ResolverConfigError";
+  }
+}
+
 export class TransportFailedError extends Error {
   readonly instanceId: string;
   readonly epoch: number;

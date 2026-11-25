@@ -49,6 +49,7 @@ function makeFakeResolver(
           traceId: `${call.runId}.${call.epoch}.${call.instanceId}.1`,
           taskId: null,
           costAttribution: null,
+          toolCalls: [],
         };
       } finally {
         inFlight--;
@@ -102,6 +103,7 @@ function makeBarrierResolver(
           traceId: `${call.runId}.${call.epoch}.${call.instanceId}.1`,
           taskId: null,
           costAttribution: null,
+          toolCalls: [],
         };
       } finally {
         inFlight--;

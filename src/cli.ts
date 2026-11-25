@@ -1,8 +1,8 @@
 import { isModelInMatrix } from "./core/matrix";
+import { TokencampResolver } from "./core/adapters/tokencamp";
 import { allBenchmarks, benchmarkIds, getBenchmark } from "./core/registry";
-import { StubGenerationResolver } from "./core/resolver";
 import { runBenchmark } from "./core/runner";
-import type { OutcomeRow } from "./core/types";
+import type { GenerationResolver, OutcomeRow } from "./core/types";
 
 const USAGE = `Usage: bun run bench -- --benchmark <id> --model <model-id> [options]
 
@@ -186,9 +186,19 @@ async function run(args: CliArgs): Promise<number> {
   }
 
   const runId = args.resumeId ?? crypto.randomUUID();
+  let resolver: GenerationResolver;
+  try {
+    // Env validation happens at construction — fail before spending anything.
+    resolver = TokencampResolver.fromEnv();
+  } catch (error) {
+    console.error(
+      `${error instanceof Error ? error.message : String(error)}\n\nset TOKENCAMP_API_KEY and TOKENCAMP_BASE_URL (v1 routes every benchmark call through the tokencamp API, ADR-0004)`,
+    );
+    return 2;
+  }
   const result = await runBenchmark({
     benchmark,
-    resolver: new StubGenerationResolver(),
+    resolver,
     model,
     runId,
     epochs: args.epochs,
