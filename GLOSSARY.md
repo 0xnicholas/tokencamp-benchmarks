@@ -25,8 +25,24 @@ A benchmark that measures Task Configurations (quality, reliability, cost) again
 _Avoid_: Agent eval, end-to-end eval
 
 **Task Configuration**:
-The complete stack that completes a task: model, prompt/context, tools, agent loop, and runtime. A single-shot model call is the degenerate form (no tools, no loop).
+The complete stack that completes a task: model, prompt/context, tools, Agent Loop, and runtime. A single-shot model call is the degenerate form (no tools, no loop).
 _Avoid_: Agent setup, eval config
+
+**Agent Loop** (智能体循环):
+The fixed, harness-driven loop a Task Configuration uses to complete an agentic task: repeated model calls, each possibly requesting tool executions, until the model stops or a budget is exhausted.
+_Avoid_: Agent framework, workflow engine
+
+**Sandbox** (沙箱):
+The isolated container where a Task Configuration's tool calls execute; model-generated code and commands run only there, with no network.
+_Avoid_: VM, jail
+
+**Tool Call** (工具调用):
+One tool invocation the model requests inside an Agent Loop; its billed wall-clock time feeds Tool Cost.
+_Avoid_: Action, function call
+
+**Turn** (回合):
+One model call in an Agent Loop plus the execution of the tool calls it requested.
+_Avoid_: Confusing with Epoch
 
 **Task Type** (任务类型):
 A category of tasks sharing a verification method (e.g., code generation, structured extraction, corpus Q&A).
@@ -66,8 +82,8 @@ The published output of a benchmark run: task cost ranking, efficiency diagnosis
 One dated, reproducible execution of a benchmark layer against a pinned set of configurations, producing artifacts that every published score links back to.
 
 **Attempt** (尝试):
-One call to a model made by a Task Configuration while completing a Task Instance. Every attempt's spend counts toward CPET.
-_Avoid_: Confusing with Epoch — one attempt is not one evaluation.
+One outcome-producing evaluation of a Task Instance by a Task Configuration: a single model call for single-shot types, a full Agent Loop for the agentic repo task. Every attempt's spend counts toward CPET.
+_Avoid_: Confusing with Epoch — an Epoch is the repeated evaluation of an instance; an Attempt is one evaluation's outcome.
 
 **Epoch** (轮次):
 One repeated evaluation of a Task Instance by the same configuration. Repeated epochs yield Reliability and pass@k statistics.
