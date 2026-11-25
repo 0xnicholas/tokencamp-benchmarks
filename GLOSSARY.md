@@ -52,8 +52,12 @@ The fraction of Epochs of a Task Instance whose outcomes pass the Quality Gate; 
 A task outcome that passes the Quality Gate.
 
 **CPET** (Cost Per Effective Task):
-Total spend across all attempts of a task (including failures and retries) divided by the number of Effective Tasks. The headline metric of Task Economics.
+Total settled spend across all attempts of a task (tokens + tools, including failures and retries) divided by the number of Effective Tasks. The headline metric of Task Economics.
 _Avoid_: Cost per task, average cost
+
+**Waste Share** (浪费占比):
+Spend on gate-failed attempts divided by total spend, computed at every aggregation level.
+_Avoid_: Failure rate, waste
 
 **Task Economics Report** (任务经济学报告):
 The published output of a benchmark run: task cost ranking, efficiency diagnosis, optimization suggestions, and the quality–CPET Pareto frontier.
@@ -78,8 +82,24 @@ The harness piece that executes a model call: it takes a call request and return
 _Avoid_: Provider SDK, provider client
 
 **Pinned Price Table** (固定价格表):
-A versioned mapping from model to per-token price, with provenance and pin date, used to convert usage into cost.
+A versioned mapping from model to per-token price, plus sandbox machine rates, with provenance and pin date, used to convert usage into cost.
 _Avoid_: Live price lookup, dynamic pricing
+
+**Settled Cost** (结算成本):
+The customer-paid cost per attempt, from tokencamp's per-request settle. The headline cost source for CPET.
+_Avoid_: Billed cost
+
+**Computed Cost** (计算成本):
+Usage multiplied by the Pinned Price Table. The reproducible cost anchor, kept per attempt for diagnosis.
+_Avoid_: Estimated cost
+
+**Tool Cost** (工具成本):
+The spend a Task Configuration incurs for agent-invoked tool execution: billed sandbox wall-clock time multiplied by a pinned machine rate. Zero for tool-free configurations.
+_Avoid_: Infrastructure cost, execution fee
+
+**Harness Overhead** (工具链开销):
+Benchmark-side execution cost (verifier runs), excluded from CPET and disclosed separately in the run summary.
+_Avoid_: Hidden cost
 
 **Price Tier** (价格档位):
 One of three cost bands a matrix model belongs to — Budget (低成本), Standard (标准成本), Premium (高性能、高成本) — assigned from pinned price and capability position, used to slice quality-per-dollar and quality–CPET charts. A reporting attribute, not a selection gate.
