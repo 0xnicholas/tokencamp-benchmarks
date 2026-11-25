@@ -1,0 +1,22 @@
+{
+  "name": "tokencamp-benchmarks",
+  "version": "0.1.0",
+  "description": "Benchmark platform for Token Economics and Task Economics, measured through the tokencamp API",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "bench": "bun src/cli.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "lint": "oxlint",
+    "format": "oxfmt src --write",
+    "format:check": "oxfmt src --check",
+    "check": "bun run typecheck && bun run lint && bun run format:check"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "oxfmt": "latest",
+    "oxlint": "latest",
+    "typescript": "latest"
+  }
+}
