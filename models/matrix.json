@@ -1,0 +1,90 @@
+{
+  "meta": {
+    "format_version": 1,
+    "name": "v1 model matrix",
+    "pinned_at": "2026-11-24",
+    "route": "tokencamp API (OpenAI-compatible /v1/chat/completions); virtual routing models (tokencamp/auto, forge/*) are banned",
+    "catalog_ref": "tokencamp-pro catalog; a run's manifest records the catalog snapshot hash and tokencamp version",
+    "tiers": {
+      "Budget": "low-cost band",
+      "Standard": "standard-cost band",
+      "Premium": "high-performance, high-cost band"
+    },
+    "calibration_configuration": "zhipu/glm-5.3-flash",
+    "versioning": "this file is versioned by git; dated catalog ids only, no rolling aliases"
+  },
+  "models": [
+    {
+      "id": "deepseek/deepseek-v4-pro",
+      "provider": "deepseek",
+      "tier": "Premium",
+      "price_usd_per_1m": { "prompt": 1.32, "completion": 3.96 },
+      "released_on": "2026-08-13",
+      "license": "MIT"
+    },
+    {
+      "id": "zhipu/glm-5.3",
+      "provider": "zhipu",
+      "tier": "Premium",
+      "price_usd_per_1m": { "prompt": 1.4, "completion": 4.4 },
+      "released_on": "2026-08-14",
+      "license": "custom:glm-5.3"
+    },
+    {
+      "id": "kimi/kimi-k3.1-pro",
+      "provider": "kimi",
+      "tier": "Premium",
+      "price_usd_per_1m": { "prompt": 1.8, "completion": 9.4 },
+      "released_on": "2026-11-12",
+      "license": null
+    },
+    {
+      "id": "qwen/qwen3.8-2.4t-a95b",
+      "provider": "qwen",
+      "tier": "Premium",
+      "price_usd_per_1m": { "prompt": 2.0, "completion": 6.0 },
+      "released_on": "2026-08-01",
+      "license": "custom:qwen3.8-max"
+    },
+    {
+      "id": "minimax/minimax-m3",
+      "provider": "minimax",
+      "tier": "Standard",
+      "price_usd_per_1m": { "prompt": 0.3, "completion": 1.2 },
+      "released_on": "2026-06-01",
+      "license": "custom:minimax-community"
+    },
+    {
+      "id": "qwen/qwen3.8-27b",
+      "provider": "qwen",
+      "tier": "Standard",
+      "price_usd_per_1m": { "prompt": 0.5, "completion": 3.0 },
+      "released_on": "2026-08-01",
+      "license": "Apache-2.0"
+    },
+    {
+      "id": "zhipu/glm-5.3-flash",
+      "provider": "zhipu",
+      "tier": "Budget",
+      "price_usd_per_1m": { "prompt": 0.15, "completion": 0.5 },
+      "released_on": "2026-08-26",
+      "license": "MIT"
+    },
+    {
+      "id": "deepseek/deepseek-v4.1-flash",
+      "provider": "deepseek",
+      "tier": "Budget",
+      "price_usd_per_1m": { "prompt": 0.3, "completion": 1.2 },
+      "released_on": "2026-09-10",
+      "license": "MIT"
+    },
+    {
+      "id": "qwen/qwen3-coder-next",
+      "provider": "qwen",
+      "tier": "Budget",
+      "price_usd_per_1m": { "prompt": 0.3, "completion": 1.5 },
+      "released_on": "2026-02-01",
+      "license": "Apache-2.0"
+    }
+  ]
+}

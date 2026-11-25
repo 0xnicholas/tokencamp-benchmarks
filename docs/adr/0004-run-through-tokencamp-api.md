@@ -1,0 +1,7 @@
+# Benchmark runs go through the tokencamp API, not direct provider calls
+
+ADR-0001 chose direct provider calls for the v1 generation layer, with a tokencamp Gateway seam reserved for later. The model-matrix decision ("Which models and providers does v1 benchmark?", #5) surfaced that tokencamp-pro is already an OpenAI-compatible LLM API platform — routing, billing (micro_usd ledger), catalog pricing, and per-request cost/latency/served-model via `GET /v1/generation/{id}` — so v1 now routes every benchmark call through the tokencamp API instead. One adapter replaces five; the pinned price table becomes a tokencamp catalog snapshot; the reserved `taskId` / `traceId` / `costAttribution` fields become real. Every run pins a tokencamp version + catalog snapshot for reproducibility, and every report discloses the route ("measured through tokencamp vX").
+
+**Considered options**: direct vendor calls (ADR-0001) — rejected now that the gateway exists, because "how much does a customer pay" is only answerable through the product route (OpenRouter runs its own benchmarks through its own API for the same reason); both routes in v1 — rejected for v1 scope, vendor-direct comparison runs are post-v1 fog.
+
+**Consequences**: speed scores include tokencamp's routing path (disclosed); the upstream vendor is a disclosure attribute of the matrix, not an adapter; upstream API keys are provisioned into tokencamp-pro, not the harness; the harness reconciles attempt cost against tokencamp's settle data.

@@ -24,7 +24,7 @@ All public seeds are pre-2023 and heavily trained on, except the ExtractBench sl
 ## Vendoring and schema
 
 - Frozen JSONL in-repo: `datasets/<type>/<seed>/instances.jsonl`, with `datasets/pins.json` (per-file sha256, source commit, license) and a reproducible fetch script. The repo is public, so every vendored dataset's license must permit redistribution (it does: Apache-2.0 / CC BY-SA with attribution / MIT).
-- Task Instance envelope — the "A. Task Dataset" block, first defined here: `id`, `task_type`, `seed {name, version, license, source_url}`, `initial_state`, `expected_outcome`, `verifier {name, params}` (semantics owned by the scoring ticket; here only a pointer), `difficulty {tier, baseline_pass_rate, calibrated_at}` (null pre-calibration), `contamination {disclosed, notes}`. Run-level reproducibility rides on the harness configHash (ADR-0002).
+- Task Instance envelope — the "A. Task Dataset" block, first defined here: `id`, `task_type`, `seed {name, version, license, source_url}`, `initial_state`, `expected_outcome`, `verifier {name, params}` (semantics fixed in ADR-0005; here only a pointer), `difficulty {tier, baseline_pass_rate, calibrated_at}` (null pre-calibration), `contamination {disclosed, notes}`. Run-level reproducibility rides on the harness configHash (ADR-0002).
 - SWE-bench repo snapshots are not vendored; the harness clones at `base_commit` inside the sandbox.
 
 ## Considered options

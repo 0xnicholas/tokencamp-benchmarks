@@ -16,6 +16,10 @@ _Avoid_: Business value analysis, ROI
 A benchmark that measures a single-shot model call (quality, cost, speed) against a capability dataset.
 _Avoid_: Capability eval, model eval
 
+**Model Matrix** (模型矩阵):
+The pinned, versioned roster of models — tokencamp catalog id × upstream provider × Price Tier — that v1 runs through the tokencamp API: every matrix model runs the Model Benchmarks and is a legal model inside any Task Configuration. Nothing outside the matrix runs.
+_Avoid_: Model list, supported models
+
 **Task Benchmark**:
 A benchmark that measures Task Configurations (quality, reliability, cost) against a task dataset.
 _Avoid_: Agent eval, end-to-end eval
@@ -31,15 +35,18 @@ _Avoid_: Benchmark family
 **Task Instance**:
 One concrete task with an initial state and an expected outcome, belonging to a Task Type.
 
+**Evaluation Engine** (评估引擎):
+The harness component that runs a Task Type's Verifier on each task outcome and records the Quality Gate verdict, Quality Score, and per-unit verification detail.
+
 **Quality Gate** (质量门):
-The binary pass/fail verdict (Task Success) for a task outcome, produced by the Evaluation Engine.
+The binary pass/fail verdict (Task Success) for a task outcome, produced by the Evaluation Engine: an outcome passes when its Quality Score is exactly 1.0 (perfect completion of the expected outcome).
 _Avoid_: Acceptance criteria
 
 **Quality Score**:
-A 0–1 score for a task outcome, comparable within a Task Type.
+A 0–1 score for a task outcome measuring progress toward the expected outcome, comparable within a Task Type; 1.0 is perfect completion and passes the Quality Gate.
 
 **Reliability** (可靠性):
-The pass rate of a Task Configuration over repeated runs of the same Task Instance.
+The fraction of Epochs of a Task Instance whose outcomes pass the Quality Gate; a Task Configuration's Reliability is the mean across Task Instances.
 
 **Effective Task** (有效任务):
 A task outcome that passes the Quality Gate.
@@ -74,6 +81,10 @@ _Avoid_: Provider SDK, provider client
 A versioned mapping from model to per-token price, with provenance and pin date, used to convert usage into cost.
 _Avoid_: Live price lookup, dynamic pricing
 
+**Price Tier** (价格档位):
+One of three cost bands a matrix model belongs to — Budget (低成本), Standard (标准成本), Premium (高性能、高成本) — assigned from pinned price and capability position, used to slice quality-per-dollar and quality–CPET charts. A reporting attribute, not a selection gate.
+_Avoid_: Frontier / mid / cheap
+
 **Run Artifact** (运行产物):
 The immutable record of a Benchmark Run — configuration, attempts, usage, cost, and scores — the evidence every published score links to.
 _Avoid_: Logs, report
@@ -90,14 +101,21 @@ _Avoid_: Raw corpus, source data
 The expected-outcome artifact attached to a Task Instance — hidden tests, golden key-values, gold answer, or golden patch — that the verifier checks the produced outcome against.
 _Avoid_: Ground truth label, reference solution
 
+**Verifier** (验证器):
+The deterministic check of a Task Type that compares a task outcome against the Golden Answer and produces the Quality Gate verdict and Quality Score.
+
 **Difficulty** (难度):
 A per-Task-Instance attribute derived post-hoc from Baseline Pass Rate, in three tiers (easy / medium / hard) computed per Task Type.
 _Avoid_: Human-rated difficulty, hardness label
 
 **Baseline Pass Rate** (基线通过率):
-The pass rate of a pinned reference configuration over repeated runs of a Task Instance, produced by a Calibration Run. The basis for Difficulty.
+The pass rate of the Calibration Configuration over repeated runs of a Task Instance, produced by a Calibration Run. The basis for Difficulty.
 _Avoid_: Score, ranking
 
 **Calibration Run** (校准跑):
 A pinned, low-cost Benchmark Run that derives Baseline Pass Rates and fills in Difficulty before the first official report run.
 _Avoid_: Warm-up run, smoke test
+
+**Calibration Configuration** (校准配置):
+The pinned Task Configuration used by the Calibration Run — the cheapest Budget-tier matrix model, single-shot (no tools, no loop) — shared across all Task Types.
+_Avoid_: Warm-up config, baseline config
