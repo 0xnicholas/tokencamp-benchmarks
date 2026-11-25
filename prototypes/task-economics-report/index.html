@@ -82,8 +82,8 @@
   /* ---- variant C: dashboard ---- */
   .vC{display:grid;grid-template-columns:1fr 330px;gap:16px}
   .vC .full{grid-column:1/-1}
-  .vC .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
-  .vC .kpi .v{font-size:1.7rem;font-weight:800}
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  .kpi .v{font-size:1.7rem;font-weight:800}
   .vC .chips{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
   .vC .chip{padding:4px 14px;border-radius:999px;border:1px solid var(--line);background:var(--card);cursor:pointer;font-size:.85rem}
   .vC .chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
@@ -92,7 +92,7 @@
   .vC #evpanel .card{border-left:4px solid var(--accent)}
   .vC details{margin:8px 0}
   .vC details summary{cursor:pointer;font-weight:600}
-  @media(max-width:960px){.vC{grid-template-columns:1fr}}
+  @media(max-width:960px){.vC{grid-template-columns:1fr}.kpis{grid-template-columns:repeat(2,1fr)}}
 </style>
 </head>
 <body>
@@ -267,6 +267,17 @@ function bars(items){ // [{label, pass, fail}]
       <span class="bar" title="pass ${pct(it.pass/t)} · fail ${pct(it.fail/t)}"><i class="pass" style="width:${it.pass/t*100}%"></i><i class="fail" style="width:${it.fail/t*100}%"></i></span>
       <span class="num small">${pct(it.pass/t)} pass</span></div>`;}).join("")+`</div>`;
 }
+function kpiCards(){
+  const cg=TASKS.codegen, kimi=cg.configs.find(c=>c.id==="cg-kimi-ss");
+  const maxEff=Math.max(...cg.configs.map(c=>c.eff));
+  const kpis=[
+    ["Headline CPET", money(kimi.cpet), "codegen · medium · gate = 1.0", evLinks(kimi.id,"mbpp")],
+    ["Effective tasks", `${kimi.eff} / ${maxEff}`, "flagship config · best of run", ""],
+    ["Waste share", `${kimi.waste}%`, "spend on failed attempts", ""],
+    ["Configs on frontier", String(frontierOf(cg.configs).length), `of ${cg.configs.length} tested`, ""],
+  ];
+  return kpis.map(k=>`<div class="card kpi"><div class="v">${k[1]}</div><div>${k[0]}</div><div class="small muted">${k[2]} ${k[3]}</div></div>`).join("");
+}
 function footnote(id){
   return `<sup><a href="${RUN.dir}/manifest.json#cfg=${id}" title="config snapshot (manifest.json)">¹</a>
   <a href="${RUN.dir}/summary.json#cost-${id}" title="cost rows (summary.json)">²</a>
@@ -315,6 +326,9 @@ function renderA(){
     </div><div class="small muted" style="text-align:right">Token Economics +<br>Task Economics (任务经济学)</div></div>
     <div class="fake-banner">PROTOTYPE — every number below is fake data for format review. Links point at the artifact paths of the settled schema, not real files.</div>
 
+    <div class="kpis" style="margin-top:14px">${kpiCards()}</div>
+    <div class="card" style="margin:12px 0 0;padding:8px 16px;font-size:.85rem;color:var(--muted)">Across task types — ${TASK_ORDER.map(k=>`${TASKS[k].name}: <strong style="color:var(--ink)">${TASKS[k].headline}</strong>`).join(" · ")}</div>
+
     <div class="tabs"><div class="tab on" data-l="model">Model layer</div><div class="tab" data-l="task">Task layer</div></div>
     <section data-layer="model">
       <div class="subtabs"><span class="subtab on">Quality</span><span class="subtab">Value</span><span class="subtab">Speed</span><span class="small muted" style="align-self:center">each score: ⚙ config · $ cost · ⧉ trace</span></div>
@@ -323,11 +337,6 @@ function renderA(){
       <p class="small muted">Quality = mean over GPQA-Diamond / HumanEval / MMLU-Pro / IFEval · Value = quality per $, rescaled 0–1 · Speed = median output t/s · 3 epochs each. <a href="#">Methodology &amp; contamination disclosure ↗</a></p>
     </section>
     <section data-layer="task" hidden>
-      <div class="headline-banner"><div>
-        <div class="small" style="opacity:.75">How much does a customer pay to complete an effective task? <span class="pill">flagship · code generation · medium tier</span></div>
-        <div class="big">${TASKS.codegen.headline}</div>
-        <div class="small" style="opacity:.85">per effective task · ${TASKS.codegen.headCfg} · quality ${TASKS.codegen.headQ} · reliability ${pct(TASKS.codegen.headRel)} ${evLinks("cg-kimi-ss","mbpp")}</div>
-      </div><div class="small" style="opacity:.85">${TASK_ORDER.map(k=>`${TASKS[k].name}: ${TASKS[k].headline}`).join(" · ")}</div></div>
       <div class="subtabs">${TASK_ORDER.map((k,i)=>`<span class="subtab ${i===0?"on":""}" data-t="${k}">${TASKS[k].name}</span>`).join("")}</div>
       <figure style="margin:10px 0">${scatterSVG(TASKS.codegen.configs)}<figcaption class="small muted">Quality vs CPET Pareto frontier — each point = one Task Configuration; dashed line = frontier.</figcaption></figure>
       ${taskTables}
