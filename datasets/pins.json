@@ -1,0 +1,127 @@
+{
+  "format_version": 1,
+  "generated_at": "2026-11-26T05:27:20.351Z",
+  "fetch_script": "scripts/fetch-datasets.ts",
+  "verifier_params": {
+    "mbpp_unit_tests": {
+      "image": "python:3.12-slim",
+      "network": false,
+      "per_test_timeout_s": 10,
+      "total_timeout_s": 30
+    },
+    "golden_fields_exact": {
+      "trim": true,
+      "case_sensitive": true,
+      "extra_keys": "ignored"
+    },
+    "drop_em_f1": {
+      "normalization": "drop-canonical"
+    },
+    "swebench_test_suite": {
+      "per_test_timeout_s": 120,
+      "total_timeout_s": 1800
+    }
+  },
+  "datasets": [
+    {
+      "task_type": "code_generation",
+      "seed": "mbpp-test",
+      "path": "datasets/code_generation/mbpp-test/instances.jsonl",
+      "instances": 500,
+      "sha256": "2792dadedd2535e6300cdcd1f61cd3e3032461c28886f33fd771b8e1200f8c3c",
+      "license": "Apache-2.0",
+      "attribution": "MBPP (Mostly Basic Python Problems), Google Research — https://github.com/google-research/google-research/tree/master/mbpp",
+      "derivation": "mbpp.jsonl task IDs 11–510 (the paper's test split, 500 problems). initial_state = prompt + signature derived from the reference solution's def line + test_setup_code; expected_outcome.tests = test_list (3 hidden tests every problem carries); the reference solution itself is never vendored.",
+      "source": {
+        "url": "https://github.com/google-research/google-research/blob/f82046ba5aabbbb427dbfd38a254d26bff08b533/mbpp/mbpp.jsonl",
+        "revision": "f82046ba5aabbbb427dbfd38a254d26bff08b533",
+        "license": "Apache-2.0",
+        "sha256": "ccf64ceae9c5403bf50a044cb6d505bfd2a2963ee58338ba268fd65beab92a9f"
+      }
+    },
+    {
+      "task_type": "corpus_qa",
+      "seed": "drop-dev-stratified",
+      "path": "datasets/corpus_qa/drop-dev-stratified/instances.jsonl",
+      "instances": 300,
+      "sha256": "f1feeb156765349a155e5b8a20d983fa118bf5c3f9e46c754cc5c53e187377f8",
+      "license": "CC BY-SA 4.0",
+      "attribution": "DROP (Discrete Reasoning Over Paragraphs), Allen Institute for AI — https://allennlp.org/drop. Vendored slice distributed under CC BY-SA 4.0; it carries the upstream share-alike terms.",
+      "derivation": "drop_dataset_dev.json, stratified by answer type (date > number > span, since DROP answers are multi-type) with proportional largest-remainder allocation and a fixed sample seed (20261126). expected_outcome carries gold surfaces plus validated_answers (ADR-0005 takes the max over both).",
+      "source": {
+        "url": "https://s3-us-west-2.amazonaws.com/allennlp/datasets/drop/drop_dataset.zip",
+        "revision": "drop-dataset.zip etag 1f73566ba43a4ec6722967d418c3478c (fetched 2026-11-26)",
+        "license": "CC BY-SA 4.0",
+        "sha256": null
+      }
+    },
+    {
+      "task_type": "structured_extraction",
+      "seed": "extractbench-short-exact",
+      "path": "datasets/structured_extraction/extractbench-short-exact/instances.jsonl",
+      "instances": 100,
+      "sha256": "2b99b7ef661154c8f3655701eb7dc3e9a521dccffac913877ec786c9291f07ac",
+      "license": "Apache-2.0",
+      "attribution": "ExtractBench, LlamaIndex — https://huggingface.co/datasets/llamaindex/ExtractBench (Apache-2.0); source documents are public records.",
+      "derivation": "short, then medium, then long split documents in id order, mined for exact-match fields: leaves of expected_output whose field_rule comparator is a string comparison (exact / case_insensitive / enum / name / address / phone), record lists excluded. A document is adopted when at least 3 such golden values survive PDF text extraction (punctuation/whitespace-insensitive check); only those answerable fields are kept as keys. document = normalized PDF text (unpdf).",
+      "source": {
+        "url": "https://huggingface.co/datasets/llamaindex/ExtractBench/tree/cf8568882e56774bc550a58e054d88620176eb27",
+        "revision": "cf8568882e56774bc550a58e054d88620176eb27",
+        "license": "Apache-2.0",
+        "sha256": null
+      }
+    },
+    {
+      "task_type": "structured_extraction",
+      "seed": "synthetic-v1",
+      "path": "datasets/structured_extraction/synthetic-v1/instances.jsonl",
+      "instances": 150,
+      "sha256": "381d068862bb89f25d80ae20cf5c88c2d1d85811a625fdfcb7b671df1c1b460f",
+      "license": "MIT",
+      "attribution": "Generated in-house by scripts/seeds/synthetic-extraction.ts (this repository).",
+      "derivation": "Five document templates (invoice, purchase order, lab report, lease summary, support ticket) × 30 seeded variants. Golden values are rendered verbatim into each document; the generator is deterministic (mulberry32, seed 20261126).",
+      "source": {
+        "url": "https://github.com/0xnicholas/tokencamp-benchmarks/blob/main/scripts/seeds/synthetic-extraction.ts",
+        "revision": "scripts/seeds/synthetic-extraction.ts @ repo HEAD of the freeze commit",
+        "license": "MIT",
+        "sha256": "594edc05765dbd4c293828f56c9249f3c45814775d2760ca10bda3e848928661"
+      }
+    },
+    {
+      "task_type": "agentic_repo_task",
+      "seed": "swebench-lite",
+      "path": "datasets/agentic_repo_task/swebench-lite/instances.jsonl",
+      "instances": 300,
+      "sha256": "d2dd54af4eff27c0b8436d0ca9fe741d66921c852d08047c950e2803e525bce7",
+      "license": "MIT",
+      "attribution": "SWE-bench Lite, Princeton NLP / SWE-bench team — https://www.swebench.com/lite (MIT).",
+      "derivation": "All 300 Lite instances in id order. initial_state = official per-instance eval image tags (x86_64 + arm64) + repo + base_commit + problem_statement; expected_outcome = test_patch + FAIL_TO_PASS/PASS_TO_PASS. Repo snapshots are not vendored: the image is the snapshot (ADR-0007). The gold `patch` is deliberately not vendored.",
+      "source": {
+        "url": "https://huggingface.co/datasets/princeton-nlp/SWE-bench_Lite/tree/6ec7bb89b9342f664a54a6e0a6ea6501d3437cc2",
+        "revision": "6ec7bb89b9342f664a54a6e0a6ea6501d3437cc2",
+        "license": "MIT",
+        "sha256": "7a21f37b8bc179c7db5beeb14e88ac538ba283455c776e6b2535bbfb6e3551b4"
+      }
+    },
+    {
+      "task_type": "agentic_repo_task",
+      "seed": "swebench-lite-first-report",
+      "path": "datasets/agentic_repo_task/swebench-lite-first-report/instances.jsonl",
+      "instances": 50,
+      "sha256": "2be1629760c03936241d62e3a7765e62054d61999133b4de8cf96cf04539f587",
+      "license": "MIT",
+      "attribution": "SWE-bench Lite subset — same attribution and licenses as the full vendored set.",
+      "derivation": "The 50-instance first-report subset: every 6th instance of the 300 in id order (systematic sample), so all 11 Lite repos stay represented. Instance envelope otherwise identical to the full set.",
+      "source": {
+        "url": "https://huggingface.co/datasets/princeton-nlp/SWE-bench_Lite/tree/6ec7bb89b9342f664a54a6e0a6ea6501d3437cc2",
+        "revision": "6ec7bb89b9342f664a54a6e0a6ea6501d3437cc2",
+        "license": "MIT",
+        "sha256": null
+      }
+    }
+  ],
+  "agentic_images": {
+    "digest_status": "unpinned",
+    "note": "Image tags are pinned but digests are not: 0/300 instances resolved a digest. Re-run `bun run datasets:fetch --pin-digests` with a reachable registry (`SWEBENCH_REGISTRY`) to fill them."
+  }
+}

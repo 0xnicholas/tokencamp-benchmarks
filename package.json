@@ -9,14 +9,20 @@
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "lint": "oxlint",
-    "format": "oxfmt src --write",
-    "format:check": "oxfmt src --check",
-    "check": "bun run typecheck && bun run lint && bun run format:check"
+    "format": "oxfmt src scripts --write",
+    "format:check": "oxfmt src scripts --check",
+    "check": "bun run typecheck && bun run lint && bun run format:check && bun run datasets:validate",
+    "datasets:fetch": "bun scripts/fetch-datasets.ts",
+    "datasets:pin-digests": "bun scripts/fetch-datasets.ts --pin-digests",
+    "datasets:validate": "bun scripts/validate-datasets.ts"
   },
   "devDependencies": {
     "@types/bun": "latest",
+    "fflate": "^0.8.3",
+    "hyparquet": "^1.33.2",
     "oxfmt": "latest",
     "oxlint": "latest",
-    "typescript": "latest"
+    "typescript": "latest",
+    "unpdf": "^2.2.2"
   }
 }
