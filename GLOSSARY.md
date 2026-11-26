@@ -78,6 +78,14 @@ _Avoid_: Failure rate, waste
 **Task Economics Report** (任务经济学报告):
 The published output of a benchmark run: task cost ranking, efficiency diagnosis, optimization suggestions, and the quality–CPET Pareto frontier.
 
+**Benchmarks API**:
+The public, read-only machine interface to benchmark results — the runs index plus each run's Report Payload and Run Artifact files — that the Task Economics Report renders from.
+_Avoid_: feed (in tokencamp-www's glossary, feed is reserved for tokencamp-pro endpoints)
+
+**Report Payload**:
+The versioned, machine-readable output of a Benchmark Run's report assembler: header KPI facts and per-layer leaderboard data. The single contract published-report consumers depend on.
+_Avoid_: summary, aggregate dump
+
 **Benchmark Run**:
 One dated, reproducible execution of a benchmark layer against a pinned set of configurations, producing artifacts that every published score links back to.
 
