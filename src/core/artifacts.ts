@@ -245,6 +245,22 @@ export class RunArtifactStore {
     ref: { readonly instanceId: string; readonly epoch: number; readonly attempt: number },
     verification: AttemptVerification,
   ): void {
+    this.#applyVerification(ref, verification);
+    appendFileSync(
+      path.join(this.#runDir, "verifications.jsonl"),
+      `${JSON.stringify({ ...ref, verification })}\n`,
+    );
+  }
+
+  /**
+   * Applies a verdict in memory only. Appending is the caller's business:
+   * resume replays the evidence stream as a *read*, so replaying must not
+   * re-append lines (that duplicated every verdict once per resume).
+   */
+  #applyVerification(
+    ref: { readonly instanceId: string; readonly epoch: number; readonly attempt: number },
+    verification: AttemptVerification,
+  ): void {
     const index = this.#rows.findIndex(
       (row) =>
         row.instanceId === ref.instanceId && row.epoch === ref.epoch && row.attempt === ref.attempt,
@@ -256,10 +272,6 @@ export class RunArtifactStore {
     }
     const current = this.#rows[index]!;
     this.#rows[index] = { ...current, verification };
-    appendFileSync(
-      path.join(this.#runDir, "verifications.jsonl"),
-      `${JSON.stringify({ ...ref, verification })}\n`,
-    );
   }
 
   /** Rewrites summary.json from the current rows (run end and resume, ADR-0002). */
@@ -325,7 +337,44 @@ export class RunArtifactStore {
           "verifications.jsonl holds a line that is not a verification record",
         );
       }
-      this.appendVerification(stored, stored.verification);
+      this.#applyVerification(stored, stored.verification);
     }
   }
+}
+
+/** Anything that consumes streamed attempt spend — the run's spend guard (ADR-0006). */
+export interface SpendRecorder {
+  record(spendUsd: number): void;
+}
+
+export interface AttemptStreamOptions {
+  /** null = the run writes no artifacts (`--artifact-dir` omitted). */
+  readonly store: RunArtifactStore | null;
+  readonly priceTable: PriceTable;
+  readonly budget?: SpendRecorder | null;
+  readonly instanceTiers?: ReadonlyMap<string, string>;
+}
+
+/**
+ * The attempt-stream chain the CLI wires into the ledger: cost-enrich the
+ * resolver's record, append it to the run artifacts when a store exists, and
+ * feed the spend guard the same headline cost either way.
+ *
+ * The guard must not depend on artifact writing: `--max-spend-usd` without
+ * `--artifact-dir` still has to refuse at the cap (ADR-0006) — otherwise the
+ * flag silently does nothing on a run that writes no results.
+ */
+export function recordAttempt(
+  options: AttemptStreamOptions,
+  record: AttemptRecord,
+): ArtifactAttemptRow {
+  const row =
+    options.store !== null
+      ? options.store.appendAttempt(record)
+      : enrichAttemptRow(record, {
+          priceTable: options.priceTable,
+          instanceTiers: options.instanceTiers,
+        });
+  options.budget?.record(row.cost.headlineUsd);
+  return row;
 }

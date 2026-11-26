@@ -2,7 +2,7 @@ import { isModelInMatrix } from "./core/matrix";
 import { TokencampResolver } from "./core/adapters/tokencamp";
 import { AttemptLedger } from "./core/attempts";
 import { RunBudget } from "./core/budget";
-import { RunArtifactStore } from "./core/artifacts";
+import { RunArtifactStore, recordAttempt } from "./core/artifacts";
 import { loadPriceTable, type PriceTable } from "./core/prices";
 import { allBenchmarks, benchmarkIds, getBenchmark } from "./core/registry";
 import { runBenchmark } from "./core/runner";
@@ -292,13 +292,11 @@ async function run(args: CliArgs): Promise<number> {
   }
 
   const ledger = new AttemptLedger({
+    // One pricing path, two sinks: artifacts when configured, and the spend
+    // guard always — `--max-spend-usd` must bite even on a run that writes no
+    // results (ADR-0006). In-flight attempts finish; only new ones are refused.
     onAttempt: (record) => {
-      const row = store?.appendAttempt(record);
-      // The guard's ledger fills from actual attempt spend — settled headline
-      // (ADR-0006). In-flight attempts finish; only new ones are refused.
-      if (row !== undefined) {
-        budget?.record(row.cost.headlineUsd);
-      }
+      recordAttempt({ store, priceTable, budget }, record);
     },
   });
 

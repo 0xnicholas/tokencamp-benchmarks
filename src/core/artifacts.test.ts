@@ -2,8 +2,9 @@ import { describe, expect, test } from "bun:test";
 import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { RunArtifactStore, computeConfigHash } from "./artifacts";
+import { RunArtifactStore, computeConfigHash, recordAttempt } from "./artifacts";
 import type { RunArtifactStoreOptions } from "./artifacts";
+import { RunBudget } from "./budget";
 import { loadPriceTable } from "./prices";
 import { attemptScopeKey } from "./attempts";
 import type { ArtifactAttemptRow, AttemptRawCall, AttemptRecord, Usage } from "./types";
@@ -192,6 +193,58 @@ describe("RunArtifactStore.appendVerification", () => {
         { verifier: "x", gate: false, score: 0, detail: {} },
       ),
     ).toThrow(/no attempt row/);
+  });
+
+  test("resume replays verification lines without duplicating them", async () => {
+    const { store: first, dir } = await makeStore();
+    first.appendAttempt(attemptRow());
+    first.appendVerification(
+      { instanceId: "inst", epoch: 1, attempt: 1 },
+      { verifier: "mbpp_unit_tests", gate: true, score: 1, detail: {} },
+    );
+    const verificationsPath = path.join(dir, "run-1", "verifications.jsonl");
+    const lineCount = async () =>
+      (await readFile(verificationsPath, "utf8")).trim().split("\n").length;
+    expect(await lineCount()).toBe(1);
+
+    // Replay is a read, not a write: the evidence stream stays append-only for
+    // *new* verdicts, so repeated resumes must not re-append the old ones.
+    for (let resume = 1; resume <= 2; resume++) {
+      const resumed = await RunArtifactStore.init({
+        artifactDir: dir,
+        runId: "run-1",
+        config: storeConfig(),
+        priceTable,
+      });
+      expect(resumed.rows()[0]!.verification?.gate).toBe(true);
+      expect(await lineCount()).toBe(1);
+    }
+    await rm(dir, { recursive: true, force: true });
+  });
+});
+
+describe("recordAttempt — the attempt stream chain", () => {
+  test("feeds the spend guard even when no artifact store is configured", () => {
+    const budget = new RunBudget({ maxSpendUsd: 0.02 });
+    const row = recordAttempt({ store: null, priceTable, budget }, attemptRow());
+    // Settled 0.032 beats computed 0.0312 — the guard tracks actual spend (ADR-0006).
+    expect(row.cost.headlineUsd).toBeCloseTo(0.032, 6);
+    expect(budget.spentUsd).toBe(row.cost.headlineUsd);
+    expect(budget.exceeded).toBe(true);
+  });
+
+  test("appends through the store and records the same headline once", async () => {
+    const { store, dir } = await makeStore();
+    const budget = new RunBudget({ maxSpendUsd: 1 });
+    const row = recordAttempt({ store, priceTable, budget }, attemptRow());
+    expect(store.rows()).toHaveLength(1);
+    expect(row.cost.headlineUsd).toBeCloseTo(0.032, 6);
+    expect(budget.spentUsd).toBe(row.cost.headlineUsd);
+    expect((await readdir(path.join(dir, "run-1"))).sort()).toEqual([
+      "manifest.json",
+      "results.jsonl",
+    ]);
+    await rm(dir, { recursive: true, force: true });
   });
 });
 
