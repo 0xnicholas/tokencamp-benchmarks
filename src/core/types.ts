@@ -90,8 +90,109 @@ export interface InstanceContext {
 
 export type OutcomeStatus = "ok" | "transport-failed";
 
+/** Anything that can refuse new attempts when the run's spend cap is reached (ADR-0006). */
+export interface SpendGuard {
+  readonly exceeded: boolean;
+}
+
 /** Status of one attempt: the resolver's granularity, finer than the runner's OutcomeStatus. */
 export type AttemptStatus = "ok" | "transport-failed" | "systemic-error";
+
+/**
+ * One billed sandbox tool execution inside an Agent Loop epoch (ADR-0007):
+ * the Tool Cost input the cost module prices at the pinned machine rate.
+ * 8KB output tails keep the artifact row bounded.
+ */
+export interface ToolCallMetering {
+  readonly toolName: string;
+  readonly wallClockMs: number;
+  readonly exitCode: number | null;
+  readonly stdoutTail: string | null;
+  readonly stderrTail: string | null;
+}
+
+/**
+ * Per-raw-call cost, derived by the cost module (#13): settledCostUsd from the
+ * settle record (null when missing/unparseable), computedCostUsd from the
+ * pinned price table.
+ */
+export interface RawCallCost {
+  readonly settledCostUsd: number | null;
+  readonly computedCostUsd: number;
+}
+
+export type AttemptArtifactRawCall = AttemptRawCall & RawCallCost;
+
+/** How much of an attempt's token spend carries a settle record (ADR-0006). */
+export type SettleFlag = "settled" | "missing" | "unbilled";
+
+/**
+ * The ADR-0006 spend model for one attempt: tokens (settled headline,
+ * computed anchor) + tools (pinned machine rate × billed wall-clock).
+ * Headline = settledTokenUsd + toolCostUsd — the CPET numerator.
+ */
+export interface AttemptCost {
+  readonly settle: SettleFlag;
+  readonly headlineUsd: number;
+  readonly settledTokenUsd: number;
+  readonly computedTokenUsd: number;
+  readonly toolCostUsd: number;
+}
+
+/**
+ * The attempt row as written to results.jsonl: the resolver's record with the
+ * cost block filled (#13), the dataset's difficulty tier, and a verification
+ * seam (null until the Evaluation Engine's verifiers run, ADR-0005).
+ */
+export interface ArtifactAttemptRow extends Omit<AttemptRecord, "cost" | "rawCalls"> {
+  readonly cost: AttemptCost;
+  readonly rawCalls: readonly AttemptArtifactRawCall[];
+  readonly difficultyTier: string | null;
+  readonly verification: AttemptVerification | null;
+}
+
+/** Benchmark-side execution cost disclosed in summary.json, excluded from CPET (ADR-0006). */
+export interface HarnessOverhead {
+  readonly verifierExecutionUsd: number;
+  readonly sandboxStartupUsd: number;
+}
+
+/** Quality aggregation per ADR-0005 — computed over verified attempt outcomes only. */
+export interface VerificationAggregate {
+  readonly verifiedAttempts: number;
+  readonly taskSuccessRate: number | null;
+  readonly meanQualityScore: number | null;
+  readonly reliability: number | null;
+  readonly instancesWithVerification: number;
+}
+
+/** Money aggregation per ADR-0006 over a set of attempt rows. */
+export interface MoneyAggregate {
+  readonly attempts: number;
+  readonly totalSpendUsd: number;
+  readonly effectiveTasks: number;
+  /** null when no attempt is verified effective — never an invented number. */
+  readonly cpetUsd: number | null;
+  /** Verified-failed spend ÷ total spend; unverifiedSpendUsd discloses the gap. */
+  readonly wasteShare: number | null;
+  readonly unverifiedSpendUsd: number;
+  readonly tokenSpendUsd: { readonly settled: number; readonly computed: number };
+  readonly toolSpendUsd: number;
+  readonly settleCoverage: Readonly<Record<SettleFlag, number>>;
+}
+
+/**
+ * The Quality Gate + Quality Score verdict for one attempt (ADR-0005), written
+ * by the Evaluation Engine's verifiers. `detail` is per-unit evidence (per-test
+ * results, per-key matches, F1 parts, F2P/P2P lists) — typed per verifier.
+ * Gate ⟺ score is exactly 1.0, the uniform rule across all task types.
+ */
+export interface AttemptVerification {
+  readonly verifier: string;
+  readonly gate: boolean;
+  readonly score: number;
+  readonly detail: unknown;
+}
 
 /**
  * One physical model call (including retries) issued through the resolver —
@@ -133,6 +234,10 @@ export interface AttemptRecord {
   readonly providerResponseId: string | null;
   readonly rawCalls: readonly AttemptRawCall[];
   readonly cost: null;
+  /** Billed sandbox tool executions for this attempt (agentic rows, ADR-0007). */
+  readonly toolCalls: readonly ToolCallMetering[];
+  /** Which pinned sandbox spec priced this attempt's toolCalls; null = tool-free. */
+  readonly sandboxSpec: string | null;
 }
 
 /**
@@ -146,6 +251,8 @@ export interface AttemptScope {
     readonly usage?: Usage | null;
     readonly latencyMs?: number | null;
     readonly providerResponseId?: string | null;
+    readonly toolCalls?: readonly ToolCallMetering[];
+    readonly sandboxSpec?: string | null;
   }) => void;
 }
 

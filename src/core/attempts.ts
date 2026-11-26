@@ -1,4 +1,11 @@
-import type { AttemptRawCall, AttemptRecord, AttemptScope, AttemptStatus, Usage } from "./types";
+import type {
+  AttemptRawCall,
+  AttemptRecord,
+  AttemptScope,
+  AttemptStatus,
+  ToolCallMetering,
+  Usage,
+} from "./types";
 
 export interface AttemptLedgerOptions {
   /** Streams each attempt row as it is recorded — the append-only artifacts hook (#13). */
@@ -71,6 +78,8 @@ export class AttemptLedger {
       providerResponseId: rawCall.generationId,
       rawCalls: [rawCall],
       cost: null,
+      toolCalls: [],
+      sandboxSpec: null,
     };
     this.#rows.push(record);
     this.#onAttempt(record);
@@ -90,6 +99,8 @@ export class AttemptLedger {
         usage?: Usage | null;
         latencyMs?: number | null;
         providerResponseId?: string | null;
+        toolCalls?: readonly ToolCallMetering[];
+        sandboxSpec?: string | null;
       }) => {
         this.#openScopes.delete(scopeKey(key.instanceId, key.epoch));
         const record: AttemptRecord = {
@@ -107,6 +118,8 @@ export class AttemptLedger {
           providerResponseId: summary.providerResponseId ?? null,
           rawCalls: [...bucket],
           cost: null,
+          toolCalls: summary.toolCalls ?? [],
+          sandboxSpec: summary.sandboxSpec ?? null,
         };
         this.#rows.push(record);
         this.#onAttempt(record);

@@ -1,8 +1,14 @@
 import { isModelInMatrix } from "./core/matrix";
 import { TokencampResolver } from "./core/adapters/tokencamp";
+import { AttemptLedger } from "./core/attempts";
+import { RunBudget } from "./core/budget";
+import { RunArtifactStore } from "./core/artifacts";
+import { loadPriceTable, type PriceTable } from "./core/prices";
 import { allBenchmarks, benchmarkIds, getBenchmark } from "./core/registry";
 import { runBenchmark } from "./core/runner";
 import type { GenerationResolver, OutcomeRow } from "./core/types";
+
+const DEFAULT_PRICE_TABLE_PATH = "prices/prices.json";
 
 const USAGE = `Usage: bun run bench -- --benchmark <id> --model <model-id> [options]
 
@@ -14,8 +20,11 @@ Options:
   --end <n>              Exclusive end instance index
   --epochs <n>           Epochs per instance (default: benchmark's defaultEpochs)
   --concurrency <n>      Global concurrency cap (default 8)
-  --artifact-dir <path>  Run artifact directory (wired up by the artifacts ticket)
-  --resume-id <id>       Resume run id (wired up by the artifacts ticket)
+  --artifact-dir <path>  Run artifact directory: <path>/<runId>/ holds manifest.json,
+                         results.jsonl, and summary.json (ADR-0002)
+  --resume-id <id>       Reopen run <id> in --artifact-dir: refuses on configHash mismatch,
+                         skips completed instances, appends new rows (ADR-0002/0006)
+  --max-spend-usd <usd>  Refuse new attempts once settled spend reaches this budget (ADR-0006)
   --list                 List registered benchmarks and exit
 `;
 
@@ -29,9 +38,17 @@ const VALUE_FLAGS = new Set([
   "--concurrency",
   "--artifact-dir",
   "--resume-id",
+  "--max-spend-usd",
 ]);
 
-const NUMERIC_FLAGS = new Set(["--limit", "--start", "--end", "--epochs", "--concurrency"]);
+const NUMERIC_FLAGS = new Set([
+  "--limit",
+  "--start",
+  "--end",
+  "--epochs",
+  "--concurrency",
+  "--max-spend-usd",
+]);
 
 interface CliArgs {
   benchmark?: string;
@@ -43,6 +60,7 @@ interface CliArgs {
   concurrency?: number;
   artifactDir?: string;
   resumeId?: string;
+  maxSpendUsd?: number;
   list: boolean;
 }
 
@@ -52,6 +70,14 @@ function parsePositiveInt(flag: string, raw: string): number | string {
   const value = Number(raw);
   if (!Number.isInteger(value) || value < 1) {
     return `${flag} expects a positive integer, got "${raw}"`;
+  }
+  return value;
+}
+
+function parsePositiveNumber(flag: string, raw: string): number | string {
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value <= 0) {
+    return `${flag} expects a positive number, got "${raw}"`;
   }
   return value;
 }
@@ -85,7 +111,9 @@ function parseArgs(argv: readonly string[]): ParseOutcome {
       const parsed =
         flag === "--start" || flag === "--end"
           ? parseNonNegativeInt(flag, rawValue)
-          : parsePositiveInt(flag, rawValue);
+          : flag === "--max-spend-usd"
+            ? parsePositiveNumber(flag, rawValue)
+            : parsePositiveInt(flag, rawValue);
       if (typeof parsed === "string") {
         return { ok: false, error: parsed };
       }
@@ -104,6 +132,9 @@ function parseArgs(argv: readonly string[]): ParseOutcome {
           break;
         case "--concurrency":
           args.concurrency = parsed;
+          break;
+        case "--max-spend-usd":
+          args.maxSpendUsd = parsed;
           break;
       }
     } else {
@@ -186,10 +217,95 @@ async function run(args: CliArgs): Promise<number> {
   }
 
   const runId = args.resumeId ?? crypto.randomUUID();
+
+  // Cost discipline (ADR-0006): the price table loads and validates at startup —
+  // an unknown model refuses to run, because a score without cost violates the
+  // destination.
+  let priceTable: PriceTable;
+  let catalogSnapshotSha256: string;
+  try {
+    const loaded = await loadPriceTable();
+    priceTable = loaded.table;
+    catalogSnapshotSha256 = loaded.sha256;
+  } catch (error) {
+    console.error(
+      `${error instanceof Error ? error.message : String(error)}\n\nthe pinned price table must load before anything runs (ADR-0006)`,
+    );
+    return 2;
+  }
+  if (!priceTable.hasModel(model)) {
+    console.error(
+      `model "${model}" is not in the pinned price table (prices/prices.json) — a score without cost violates the destination (ADR-0006)`,
+    );
+    return 2;
+  }
+  if (args.resumeId !== undefined && args.artifactDir === undefined) {
+    console.error("--resume-id requires --artifact-dir (the run directory to reopen)");
+    return 2;
+  }
+
+  const priceTableRef = `${DEFAULT_PRICE_TABLE_PATH}@sha256:${catalogSnapshotSha256}`;
+  const tokencampVersion = process.env.TOKENCAMP_VERSION ?? null;
+  const epochs = args.epochs ?? benchmark.meta.defaultEpochs;
+  const concurrency = args.concurrency ?? 8;
+  const params = {
+    epochs,
+    concurrency,
+    start: args.start ?? null,
+    end: args.end ?? null,
+    limit: args.limit ?? null,
+    artifactDir: args.artifactDir ?? null,
+    resumeId: args.resumeId ?? null,
+  };
+
+  const budget =
+    args.maxSpendUsd !== undefined ? new RunBudget({ maxSpendUsd: args.maxSpendUsd }) : null;
+
+  // The artifact store streams cost-enriched attempt rows to results.jsonl and
+  // refuses a resume whose configHash (or price-table pin) drifted.
+  let store: RunArtifactStore | null = null;
+  if (args.artifactDir !== undefined) {
+    try {
+      store = await RunArtifactStore.init({
+        artifactDir: args.artifactDir,
+        runId,
+        config: {
+          configSnapshot: {
+            benchmarkId: benchmark.meta.id,
+            layer: benchmark.meta.layer,
+            model,
+            temperature: benchmark.meta.temperature,
+            gitSha: resolveGitSha(),
+            params,
+            priceTableRef,
+            taskConfiguration: null,
+          },
+          tokencampVersion,
+          catalogSnapshotSha256,
+        },
+        priceTable,
+      });
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      return 2;
+    }
+  }
+
+  const ledger = new AttemptLedger({
+    onAttempt: (record) => {
+      const row = store?.appendAttempt(record);
+      // The guard's ledger fills from actual attempt spend — settled headline
+      // (ADR-0006). In-flight attempts finish; only new ones are refused.
+      if (row !== undefined) {
+        budget?.record(row.cost.headlineUsd);
+      }
+    },
+  });
+
   let resolver: GenerationResolver;
   try {
     // Env validation happens at construction — fail before spending anything.
-    resolver = TokencampResolver.fromEnv();
+    resolver = TokencampResolver.fromEnv(process.env, { ledger });
   } catch (error) {
     console.error(
       `${error instanceof Error ? error.message : String(error)}\n\nset TOKENCAMP_API_KEY and TOKENCAMP_BASE_URL (v1 routes every benchmark call through the tokencamp API, ADR-0004)`,
@@ -208,16 +324,30 @@ async function run(args: CliArgs): Promise<number> {
     limit: args.limit,
     artifactDir: args.artifactDir ?? null,
     resumeId: args.resumeId ?? null,
+    priceTableRef,
+    completedUnits: store?.completedUnits(),
+    budget: budget ?? undefined,
     gitSha: resolveGitSha(),
     onOutcome: printOutcome,
   });
 
+  if (store !== null) {
+    await store.writeSummary();
+    console.log(`artifacts: ${store.runDir} (manifest.json, results.jsonl, summary.json)`);
+  }
+
   const okCount = result.rows.filter((row) => row.status === "ok").length;
   const transportFailedCount = result.rows.length - okCount;
+  const budgetLine =
+    budget !== null
+      ? `, spend $${budget.spentUsd.toFixed(4)} / cap $${args.maxSpendUsd?.toFixed(2)}`
+      : "";
   console.log(
-    `run ${result.runId} ${result.status}: ${result.rows.length} outcomes (ok: ${okCount}, transport-failed: ${transportFailedCount})`,
+    `run ${result.runId} ${result.status}: ${result.rows.length} outcomes (ok: ${okCount}, transport-failed: ${transportFailedCount})${budgetLine}` +
+      (result.skippedCompleted > 0 ? `, resumed: ${result.skippedCompleted} skipped` : "") +
+      (result.budgetRefused > 0 ? `, budget-refused: ${result.budgetRefused}` : ""),
   );
-  return result.status === "aborted" ? 1 : 0;
+  return result.status === "completed" ? 0 : 1;
 }
 
 const parsed = parseArgs(Bun.argv.slice(2));

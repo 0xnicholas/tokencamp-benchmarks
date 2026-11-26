@@ -42,3 +42,11 @@ A `--max-spend-usd` run guard graduates into the cost-module build ticket (#13):
 - #10 (agentic sandbox) body amended: its output contract must report billed wall-clock time per tool call (this ADR's tool-cost input).
 - GLOSSARY: Tool Cost, Waste Share, Settled Cost, Computed Cost, Harness Overhead added; CPET and Pinned Price Table sharpened.
 - The report prototype's KPI fields (headline CPET, waste share, per-type strip, tier-level diagnosis) are exactly the aggregates this ADR produces.
+
+## Amendment (2026-11-26, cost-module build #13)
+
+Decisions made while implementing this ADR:
+
+- **Cache pricing semantics** (computed token cost): cache-read tokens are a subset of input tokens (OpenAI-compatible usage — `prompt_tokens_details.cached_tokens` ⊆ `prompt_tokens`), so the uncached remainder (`inputTokens − cacheReadInputTokens`) bills at the input price and cache-read bills at the cache-read price; cacheRead/cacheWrite rows default to the input price when the catalog does not disclose one. Reasoning tokens ride inside outputTokens and are never billed separately. This is an unverified wire assumption until the first integration run (map fog).
+- **Budget guard granularity**: the `--max-spend-usd` guard checks before each attempt starts; in-flight attempts finish (per-attempt granular). The agentic loop should additionally check between turns (#19) so a long epoch cannot blow the cap.
+- **Settle refetch deferred**: inline settle covers the normal path; a missing settle is flagged (`settle: "missing"`) with the generation id always captured, so the report layer can refetch — no refetch in the append path, which stays synchronous and crash-safe.

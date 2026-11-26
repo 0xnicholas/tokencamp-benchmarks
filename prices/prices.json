@@ -1,0 +1,73 @@
+{
+  "meta": {
+    "format_version": 1,
+    "name": "v1 pinned price table",
+    "pinned_at": "2026-11-26",
+    "provenance": "tokencamp-pro catalog snapshot; prices are already USD per 1M tokens — no FX conversion in v1 (ADR-0004)",
+    "versioning": "git-versioned in-repo; re-pin between runs only (new pin date, new commit, new sha) — never mid-run; the run manifest pins the table and resume refuses on mismatch (ADR-0006)",
+    "cache_pricing": "cacheRead/cacheWrite rows are optional and default to the input price when the catalog does not disclose a cache-specific price"
+  },
+  "models": [
+    {
+      "id": "deepseek/deepseek-v4-pro",
+      "usd_per_1m_input": 1.32,
+      "usd_per_1m_output": 3.96,
+      "provenance": { "source": "tokencamp catalog snapshot 2026-11-26 (models/matrix.json)", "pinned_at": "2026-11-26" }
+    },
+    {
+      "id": "zhipu/glm-5.3",
+      "usd_per_1m_input": 1.4,
+      "usd_per_1m_output": 4.4,
+      "provenance": { "source": "tokencamp catalog snapshot 2026-11-26 (models/matrix.json)", "pinned_at": "2026-11-26" }
+    },
+    {
+      "id": "kimi/kimi-k3.1-pro",
+      "usd_per_1m_input": 1.8,
+      "usd_per_1m_output": 9.4,
+      "provenance": { "source": "tokencamp catalog snapshot 2026-11-26 (models/matrix.json)", "pinned_at": "2026-11-26" }
+    },
+    {
+      "id": "qwen/qwen3.8-2.4t-a95b",
+      "usd_per_1m_input": 2.0,
+      "usd_per_1m_output": 6.0,
+      "provenance": { "source": "tokencamp catalog snapshot 2026-11-26 (models/matrix.json)", "pinned_at": "2026-11-26" }
+    },
+    {
+      "id": "minimax/minimax-m3",
+      "usd_per_1m_input": 0.3,
+      "usd_per_1m_output": 1.2,
+      "provenance": { "source": "tokencamp catalog snapshot 2026-11-26 (models/matrix.json)", "pinned_at": "2026-11-26" }
+    },
+    {
+      "id": "qwen/qwen3.8-27b",
+      "usd_per_1m_input": 0.5,
+      "usd_per_1m_output": 3.0,
+      "provenance": { "source": "tokencamp catalog snapshot 2026-11-26 (models/matrix.json)", "pinned_at": "2026-11-26" }
+    },
+    {
+      "id": "zhipu/glm-5.3-flash",
+      "usd_per_1m_input": 0.15,
+      "usd_per_1m_output": 0.5,
+      "provenance": { "source": "tokencamp catalog snapshot 2026-11-26 (models/matrix.json)", "pinned_at": "2026-11-26" }
+    },
+    {
+      "id": "deepseek/deepseek-v4.1-flash",
+      "usd_per_1m_input": 0.3,
+      "usd_per_1m_output": 1.2,
+      "provenance": { "source": "tokencamp catalog snapshot 2026-11-26 (models/matrix.json)", "pinned_at": "2026-11-26" }
+    },
+    {
+      "id": "qwen/qwen3-coder-next",
+      "usd_per_1m_input": 0.3,
+      "usd_per_1m_output": 1.5,
+      "provenance": { "source": "tokencamp catalog snapshot 2026-11-26 (models/matrix.json)", "pinned_at": "2026-11-26" }
+    }
+  ],
+  "sandbox_rates": [
+    {
+      "spec": "docker:4cpu:16gb",
+      "usd_per_hour": 0.2,
+      "provenance": { "source": "public cloud list price for a comparable 4cpu/16gb VM (AWS m7i.xlarge ≈ $0.20/h)", "pinned_at": "2026-11-26" }
+    }
+  ]
+}

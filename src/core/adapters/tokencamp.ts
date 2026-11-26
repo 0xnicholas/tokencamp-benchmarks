@@ -212,10 +212,14 @@ export class TokencampResolver implements GenerationResolver {
     this.#appUrl = options.appUrl === undefined ? DEFAULTS.appUrl : options.appUrl;
   }
 
-  static fromEnv(env: Record<string, string | undefined> = process.env): TokencampResolver {
+  static fromEnv(
+    env: Record<string, string | undefined> = process.env,
+    overrides: Partial<Omit<TokencampResolverOptions, "apiKey" | "baseUrl">> = {},
+  ): TokencampResolver {
     return new TokencampResolver({
       apiKey: env.TOKENCAMP_API_KEY ?? "",
       baseUrl: env.TOKENCAMP_BASE_URL ?? "",
+      ...overrides,
     });
   }
 

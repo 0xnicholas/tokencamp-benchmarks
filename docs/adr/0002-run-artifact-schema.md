@@ -6,4 +6,11 @@ CPET is defined as total spend across all attempts ÷ effective tasks, so attemp
 
 **Considered options**: mirror the reference exactly (one folded parquet per run) — rejected, it drops the attempt granularity CPET needs and persists nothing until completion. Attempt-level parquet — rejected for v1, since a whole-buffer write needs a stream writer to resume, for no gain at v1 scale; revisit when the dataset volume outgrows JSONL.
 
+## Amendment (2026-11-26, cost-module build #13)
+
+Two clarifications from implementing the artifact store:
+
+- **configHash contents**: the hash is sha256 over the canonical (key-sorted) JSON of what defines the run — benchmark id, layer, model, temperature, params (excluding `artifactDir`/`resumeId`, which are artifact identity, not config), the price-table ref (`prices/prices.json@sha256:<hex>`), git sha, tokencamp version, and the catalog snapshot hash. `runId` and wall-clock date stay in the manifest unhashed: hashing them would make any later-day resume refuse on mismatch, contradicting the resume discipline above. Resume recomputes the hash from current config and refuses on drift (price-table pin included, per ADR-0006).
+- **Verification layout**: attempt rows append to `results.jsonl` the moment they are recorded (crash-safety, cost complete) — but verification runs after recording. Verdicts therefore live in a second append-only stream, `verifications.jsonl` (lines of `{instanceId, epoch, attempt, verification}`), joined onto rows by `(instanceId, epoch, attempt)` at read time; the attempt row's `verification` field (ADR-0005) is satisfied on disk and in memory. The Evaluation Engine writes verdicts through `RunArtifactStore.appendVerification`.
+
 **Consequences**: this schema is the input contract for the Task Economics Report prototype (#8) and for the Benchmarks API (fog). Accuracy aggregation is fixed in ADR-0005 and CPET is #9's; `summary.json`'s assembler stays pluggable.

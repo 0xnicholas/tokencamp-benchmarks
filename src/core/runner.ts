@@ -1,4 +1,5 @@
 import { AbortRunError, TransportFailedError } from "./errors";
+import { attemptScopeKey } from "./attempts";
 import type {
   Benchmark,
   ConfigSnapshot,
@@ -6,6 +7,7 @@ import type {
   InstanceContext,
   InstanceOutcome,
   OutcomeRow,
+  SpendGuard,
 } from "./types";
 
 export interface AdapterConfig {
@@ -25,6 +27,11 @@ export interface RunnerInput {
   readonly gitSha?: string | null;
   readonly artifactDir?: string | null;
   readonly resumeId?: string | null;
+  readonly priceTableRef?: string | null;
+  /** Resume: (instanceId, epoch) pairs that already have attempt rows — skipped, never re-run. */
+  readonly completedUnits?: ReadonlySet<string>;
+  /** Refuses new attempts once actual spend reaches the cap (ADR-0006). */
+  readonly budget?: SpendGuard;
   readonly adapterConfig?: AdapterConfig;
   readonly onOutcome?: (row: OutcomeRow) => void;
 }
@@ -33,7 +40,11 @@ export interface RunResult {
   readonly runId: string;
   readonly configSnapshot: ConfigSnapshot;
   readonly rows: readonly OutcomeRow[];
-  readonly status: "completed" | "aborted";
+  readonly status: "completed" | "aborted" | "budget-reached";
+  /** Units skipped on resume because their (instance, epoch) already has rows. */
+  readonly skippedCompleted: number;
+  /** Units refused because the spend guard tripped before they could start. */
+  readonly budgetRefused: number;
 }
 
 class Semaphore {
@@ -85,6 +96,14 @@ export async function runBenchmark(input: RunnerInput): Promise<RunResult> {
       units.push({ instance, epoch });
     }
   }
+  // Resume discipline (ADR-0002): (instance, epoch) pairs with attempt rows are
+  // complete — every concluded attempt counts toward CPET, so re-running it
+  // would double-count spend.
+  const completedUnits = input.completedUnits;
+  const scheduled = completedUnits
+    ? units.filter((unit) => !completedUnits.has(attemptScopeKey(unit.instance.id, unit.epoch)))
+    : units;
+  const skippedCompleted = units.length - scheduled.length;
 
   const provider = resolver.providerFor(model);
   const providerCap = input.adapterConfig?.providerCaps?.[provider] ?? concurrency;
@@ -134,12 +153,19 @@ export async function runBenchmark(input: RunnerInput): Promise<RunResult> {
 
   let nextUnit = 0;
   let aborted = false;
+  let dispatched = 0;
+  let budgetStopped = false;
   async function worker(): Promise<void> {
     while (true) {
       if (controller.signal.aborted) return;
-      if (nextUnit >= units.length) return;
-      const unit = units[nextUnit]!;
+      if (nextUnit >= scheduled.length) return;
+      if (input.budget?.exceeded) {
+        budgetStopped = true;
+        return;
+      }
+      const unit = scheduled[nextUnit]!;
       nextUnit++;
+      dispatched++;
       const releaseGlobal = await globalLimiter.acquire();
       const releaseProvider = await providerLimiter.acquire();
       try {
@@ -162,7 +188,7 @@ export async function runBenchmark(input: RunnerInput): Promise<RunResult> {
     }
   }
 
-  const workerCount = Math.min(concurrency, units.length);
+  const workerCount = Math.min(concurrency, scheduled.length);
   await Promise.all(Array.from({ length: workerCount }, () => worker()));
 
   const configSnapshot: ConfigSnapshot = {
@@ -180,9 +206,16 @@ export async function runBenchmark(input: RunnerInput): Promise<RunResult> {
       artifactDir: input.artifactDir ?? null,
       resumeId: input.resumeId ?? null,
     },
-    priceTableRef: null,
+    priceTableRef: input.priceTableRef ?? null,
     taskConfiguration: null,
   };
 
-  return { runId, configSnapshot, rows, status: aborted ? "aborted" : "completed" };
+  return {
+    runId,
+    configSnapshot,
+    rows,
+    status: aborted ? "aborted" : budgetStopped ? "budget-reached" : "completed",
+    skippedCompleted,
+    budgetRefused: budgetStopped ? scheduled.length - dispatched : 0,
+  };
 }

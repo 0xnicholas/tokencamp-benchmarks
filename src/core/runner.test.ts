@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { AbortRunError, TransportFailedError } from "./errors";
+import { RunBudget } from "./budget";
 import { runBenchmark } from "./runner";
 import type {
   Benchmark,
@@ -512,5 +513,125 @@ describe("runBenchmark", () => {
 
     expect(result.rows).toHaveLength(6);
     expect(result.rows.filter((row) => row.instanceId === "one")).toHaveLength(3);
+  });
+
+  test("resume skips completed (instance, epoch) units — they are never re-run", async () => {
+    const fake = makeFakeResolver();
+    const benchmark = makeFakeBenchmark({ instances: ["one", "two"] });
+
+    const result = await runBenchmark({
+      benchmark,
+      resolver: fake.resolver,
+      model: "zhipu/glm-5.3",
+      runId: "run-1",
+      epochs: 2,
+      completedUnits: new Set(["one\u00001", "two\u00002"]),
+    });
+
+    expect(result.status).toBe("completed");
+    expect(result.skippedCompleted).toBe(2);
+    expect(result.rows.map((row) => [row.instanceId, row.epoch] as const).sort()).toEqual([
+      ["one", 2],
+      ["two", 1],
+    ]);
+  });
+
+  test("budget guard refuses new attempts once spend reaches the cap (ADR-0006)", async () => {
+    const fake = makeFakeResolver();
+    const budget = new RunBudget({ maxSpendUsd: 1 });
+    // Simulates the attempt-stream consumer recording settled spend per attempt.
+    const benchmark = makeFakeBenchmark({
+      instances: ["a", "b", "c", "d", "e", "f"],
+      runInstance: async (instance, ctx) => {
+        const result = await ctx.resolver.generate({
+          runId: ctx.runId,
+          benchmarkId: "fake",
+          instanceId: instance.id,
+          epoch: ctx.epoch,
+          model: ctx.model,
+          temperature: ctx.temperature,
+          messages: [{ role: "user", content: "prompt" }],
+          signal: ctx.signal,
+        });
+        budget.record(0.6);
+        return {
+          status: "ok",
+          content: result.content,
+          usage: null,
+          latencyMs: null,
+          providerResponseId: null,
+        };
+      },
+    });
+
+    const result = await runBenchmark({
+      benchmark,
+      resolver: fake.resolver,
+      model: "zhipu/glm-5.3",
+      runId: "run-1",
+      epochs: 1,
+      concurrency: 1,
+      budget,
+    });
+
+    expect(result.status).toBe("budget-reached");
+    // two attempts spend 1.2 ≥ 1.0 — the remaining four refuse to start
+    expect(fake.calls.map((call) => call.instanceId).sort()).toEqual(["a", "b"]);
+    expect(result.budgetRefused).toBe(4);
+  });
+
+  test("budget reached exactly when the last unit finishes still completes", async () => {
+    const fake = makeFakeResolver();
+    const budget = new RunBudget({ maxSpendUsd: 1 });
+    const benchmark = makeFakeBenchmark({
+      instances: ["a", "b"],
+      runInstance: async (instance, ctx) => {
+        const result = await ctx.resolver.generate({
+          runId: ctx.runId,
+          benchmarkId: "fake",
+          instanceId: instance.id,
+          epoch: ctx.epoch,
+          model: ctx.model,
+          temperature: ctx.temperature,
+          messages: [{ role: "user", content: "prompt" }],
+          signal: ctx.signal,
+        });
+        budget.record(0.5);
+        return {
+          status: "ok",
+          content: result.content,
+          usage: null,
+          latencyMs: null,
+          providerResponseId: null,
+        };
+      },
+    });
+
+    const result = await runBenchmark({
+      benchmark,
+      resolver: fake.resolver,
+      model: "zhipu/glm-5.3",
+      runId: "run-1",
+      epochs: 1,
+      concurrency: 1,
+      budget,
+    });
+    expect(result.status).toBe("completed");
+    expect(result.budgetRefused).toBe(0);
+  });
+
+  test("priceTableRef lands in the config snapshot", async () => {
+    const fake = makeFakeResolver();
+    const benchmark = makeFakeBenchmark();
+
+    const result = await runBenchmark({
+      benchmark,
+      resolver: fake.resolver,
+      model: "zhipu/glm-5.3",
+      runId: "run-1",
+      priceTableRef: "prices/prices.json@sha256:" + "a".repeat(64),
+    });
+
+    expect(result.configSnapshot.priceTableRef).toBe("prices/prices.json@sha256:" + "a".repeat(64));
   });
 });
